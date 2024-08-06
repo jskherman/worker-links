@@ -15,6 +15,8 @@ type Variables = {
 type Bindings = {
 	WORKERLINKS_SECRET: string
 	PLAUSIBLE_HOST?: string
+	UMAMI_HOST?: string
+	UMAMI_ID?: string
 	KV: KVNamespace
 	kv: KVNamespace
 	ENABLE_INDEX_FORM: boolean
@@ -143,6 +145,10 @@ async function handleGetHead(c: Context) {
 
 		if (c.env.PLAUSIBLE_HOST !== undefined) {
 			c.executionCtx.waitUntil(sendToPlausible(c))
+		}
+
+		if (c.env.UMAMI_HOST !== undefined) {
+			c.executionCtx.waitUntil(sendToUmami(c))
 		}
 
 		return c.redirect(newUrl.toString(), 302)
@@ -292,6 +298,31 @@ async function sendToPlausible(c: Context) {
 		domain: new URL(c.req.url).hostname,
 		referrer: c.req.header('referer'),
 	}
+	await fetch(url, { method: 'POST', headers, body: JSON.stringify(data) })
+}
+
+// PLAUSIBLE_HOST should be the full URL to your Plausible Analytics instance
+// e.g. https://plausible.io/
+async function sendToUmami(c: Context) {
+	const url = c.env.UMAMI_HOST + 'api/send'
+	const headers = new Headers()
+	headers.append('User-Agent', c.req.header('User-Agent') || '')
+	headers.append('X-Forwarded-For', c.req.header('X-Forwarded-For') || '')
+	headers.append('Content-Type', 'application/json')
+
+	const data = {
+		payload: {
+			hostname: new URL(c.req.url).hostname,
+			language: c.req.header('Accept-Language'),
+			referrer: c.req.header('Referer'),
+			screen: "1000x1000",
+			title: c.req.path,
+			url: c.req.url,
+			website: c.env.UMAMI_ID,
+			name: 'shorturl-view',
+		},
+		type: 'event',
+	};
 	await fetch(url, { method: 'POST', headers, body: JSON.stringify(data) })
 }
 
